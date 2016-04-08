@@ -1,0 +1,19 @@
+#!/bin/bash
+set -e
+
+env | grep _ >> /etc/environment
+
+WAITS=" -wait tcp://${MYSQL_PORT_3306_TCP_ADDR}:${MYSQL_PORT_3306_TCP_PORT} "
+curl -s https://getcomposer.org/installer | php
+
+pushd /var/www/html/
+curl -s https://getcomposer.org/installer | php
+php composer.phar install --no-dev
+popd
+
+/usr/local/bin/dockerize -timeout 120s $WAITS -template /var/www/html/config/app.php.template:/var/www/html/config/app.php
+
+# Apache gets grumpy about PID files pre-existing
+[[ -f /var/run/apache2/apache2.pid ]] && rm -f /var/run/apache2/apache2.pid
+
+exec apache2 -DFOREGROUND
